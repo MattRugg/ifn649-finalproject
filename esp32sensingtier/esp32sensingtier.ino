@@ -3,7 +3,7 @@
 #include "TagUtils.hpp"
 
 BluetoothSerial SerialBT;
-TagUtils tagUtils;
+TagUtils tagUtils(TagErrorCB);
 
 void setup() {
   // Initialise Bluetooth serial
@@ -18,7 +18,10 @@ void loop() {
   static elapsedMillis dataSendInterval;
   
   // read RFID serial every 100 ms to increase
-  // chances of reading an entire Tag ID at once
+  // chances of reading an entire Tag ID at once.
+  // Not a problem if that doesn't happen, as the
+  // TagUtils has a state machine to parse the
+  // incoming bytestream
   if (dataSendInterval > 100) {
     int nbytes = Serial2.available();
     for (int i=0; i < nbytes; i++)
@@ -27,11 +30,16 @@ void loop() {
       if (tag != NULL)
       {
         Serial.println("Tag read: " + String(tag));
+
+        // Send a message upstream via Bluetooth to indicate
+        // a tag has been swiped
+        SerialBT.println("TAGSWIPE," + String(tag));
       }
     }
   }
-  
-  // put your main code here, to run repeatedly:
-  SerialBT.println("Hello World");
-  delay(1000);
+}
+
+void TagErrorCB(String error)
+{
+  Serial.println("Tag error: " + error);
 }

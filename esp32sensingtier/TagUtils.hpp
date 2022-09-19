@@ -1,3 +1,5 @@
+typedef void (*errorCB)(String);
+
 class TagUtils
 {
   private:
@@ -20,11 +22,18 @@ class TagUtils
       if (ascii_nibble >= 'A' && ascii_nibble <= 'F')
         return ascii_nibble - 'A' + 10;
     }
+
+    errorCB errorCallback = NULL;
   
   public:
+
     TagUtils() {
-      //state = STATE_BEGIN;
+      state = STATE_BEGIN;
       countTagBytes = 0;
+    }
+
+    TagUtils(errorCB userErrorCallback):TagUtils() {
+      errorCallback = userErrorCallback;
     }
 
     char* checkCRC(char *cTagID)
@@ -99,12 +108,17 @@ class TagUtils
             return retTag;
           } else {
             // failed checksum
-            // Serial.println("Failed checksum");
+            if (errorCallback != NULL)
+              errorCallback("Failed checksum");
             return NULL;
           }
         } else {
           // Could not find the control character 0x03:
           // It's likely the RFID tag wasn't properly read
+
+          if (errorCallback != NULL)
+              errorCallback("Unexpected end control character");
+
           return NULL;
         }
       }  
