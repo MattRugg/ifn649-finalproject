@@ -35,17 +35,24 @@ def on_message(client, userdata, msg): # func for sending msg
 			if level2 == "emergency":
 				emergencyState = "OFF" if level == "0" else "ON"
 				ser.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
-			elif level2[:4] == "door" and numLevels > 3:
+			elif level2[:4] == "door" and numLevels > 4:
 				doorNumber = level2[4:]
 				if level3 == "access":
-					level4 = topicLevels[3]
-					permission = "GRANTED" if level4 == 1 else "DENIED"
+					tagID = topicLevels[3]
+					permission = "DENIED"
+					if topicLevels[4] == 1:
+						permission = "GRANTED"
+						bufferCredential(tagID, level2)
 					if doorNumber == 1:
 						ser.write(str.encode("ACCESS," + emergencyState + "\r\n"))
 	print("### received from MQTT broker: " + msg.topic + " " + payload)
 
 def on_publish(client, obj, msg):
 	print("Published to MQTT message id: " + str(msg))
+
+def bufferCredential(tagID, assetID):
+	#TODO buffer credential
+	pass
 
 
 client = mqtt.Client()
