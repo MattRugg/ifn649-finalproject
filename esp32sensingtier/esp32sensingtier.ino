@@ -2,7 +2,7 @@
 #include "elapsedMillis.h"
 #include "TagUtils.hpp"
 #include "Peripherals.hpp"
-#include "buzzer.hpp"
+#include "Buzzer.hpp"
 
 BluetoothSerial SerialBT;
 TagUtils tagUtils(TagErrorCB);
@@ -19,6 +19,7 @@ void setup() {
   // Setup peripherals
   ledSetup();
   buzzerSetup();
+  doorLatchSetup();
 
   SerialBT.print("Hello");
 }
@@ -71,7 +72,7 @@ void loop() {
             if (command == "EMERGENCY,OFF") {
               Serial.println("Emergency off");
               inEmergencyMode = false;
-              ledOff();
+              doorLatchClose();
             }
           }
           else
@@ -79,9 +80,7 @@ void loop() {
             if (command == "ACCESS,GRANTED") {
               Serial.println("Granting access");
               buzzerPlayTrack(1);
-              ledOn();
-              delay(2000);
-              ledOff();
+              doorLatchOpen();
             }
             else if (command == "ACCESS,DENIED") {
               Serial.println("Access denied");
@@ -90,7 +89,7 @@ void loop() {
             else if (command == "EMERGENCY,ON") {
               Serial.println("Emergency on");
               inEmergencyMode = true;
-              ledOn();
+              doorLatchKeepOpen();
             }        
           }
           
@@ -103,6 +102,7 @@ void loop() {
   }
 
   buzzerLoop();
+  doorLatchLoop();
 }
 
 void TagErrorCB(String error)
