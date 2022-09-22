@@ -2,6 +2,7 @@
 #include "elapsedMillis.h"
 #include "TagUtils.hpp"
 #include "Peripherals.hpp"
+#include "buzzer.hpp"
 
 BluetoothSerial SerialBT;
 TagUtils tagUtils(TagErrorCB);
@@ -28,6 +29,8 @@ void loop() {
   
   // read RFID and Bluetooth serial every 100 ms
   if (dataSendInterval > 100) {
+    // reset timer
+    dataSendInterval -= 100;
 
     // Reads RFID serial 
     int nbytes = Serial2.available();
@@ -75,14 +78,14 @@ void loop() {
           {
             if (command == "ACCESS,GRANTED") {
               Serial.println("Granting access");
-              buzzerPlayTrack(0);
+              buzzerPlayTrack(1);
               ledOn();
               delay(2000);
               ledOff();
             }
             else if (command == "ACCESS,DENIED") {
               Serial.println("Access denied");
-              buzzerPlayTrack(1);
+              buzzerPlayTrack(2);
             }
             else if (command == "EMERGENCY,ON") {
               Serial.println("Emergency on");
@@ -98,6 +101,8 @@ void loop() {
       }
     }
   }
+
+  buzzerLoop();
 }
 
 void TagErrorCB(String error)
