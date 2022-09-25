@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template, request, session
 from flask_mqtt import Mqtt
 
 app = Flask(__name__)
@@ -42,28 +42,38 @@ def handle_mqtt_message(client, userdata, msg):
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
 
-@app.route('/ledon')
-def ledon():
+
+
+@app.route('/logout')
+def webLogout():
+	session['loggedin'] = False
+	return webLogin()
+
+@app.route('/login')
+def webLogin():
+	return render_template('login.html')
+
+@app.route('/emergency')
+def webEmergency():
 	mqtt.publish('led','on')
 	return index()
 
-@app.route('/ledoff')
-def ledoff():
-	mqtt.publish('led','off')
-	return index()
-
-@app.route('/buzzer1')
-def buzzer1():
-	mqtt.publish('buzzer','1')
-	return index()
-
-@app.route('/buzzer2')
-def buzzer2():
-	mqtt.publish('buzzer','2')
-	return index()
-
-@app.route('/')
+@app.route('/', methods = ['POST','GET'])
 def index():
+	# We need to make sure the web user has been
+	# authenticated before using the system.
+	if 'loggedin' not in session:
+		session['loggedin'] = False;
+
+	if request.method == 'POST':
+		user = request.form['user']
+		pswd = request.form['pwd']
+		if user == 'admin' and pswd == '1234':
+			session['loggedin'] = True;
+
+	if not session['loggedin']:
+		return webLogin()
+
 	# HTML header tags
 	retHTML  = "<html><head><title>IFN649 Assessment </title>"
 
@@ -76,16 +86,15 @@ def index():
 	retHTML += "<body><div style='margin-top:40px;margin-bottom:10px;background-image:linear-gradient(to bottom right, cyan, #c6f6c6)'><h2>IFN649 Assessment 1</h2></h3>Matheus Cavalca Ruggiero<br />N10913556</h3></div>"
 
 	# update fields according to MQTT messages
-	retHTML += "<div><p>" + airtemp + " &#176C</p>"
+	retHTML += "<div><p>logged in</p>"
 
 	# operate actuators
-	retHTML += "<a href='/ledon'>Turn LED on</a>"
-	retHTML += "<a href='/ledoff'>Turn LED off</a>"
-	retHTML += "<a href='/buzzer1'>Play buzzer track 1</a>"
-	retHTML += "<a href='/buzzer2'>Play buzzer track 2</a>"
+	retHTML += "<a href='/logout'>Logout</a>"
 
 	retHTML += "</div></body></html>"
 	return retHTML
 
 if __name__ == '__main__':
+	app.secret_key = 'supersecretkey'
+	app.config['SESSION_TYPE'] = 'filesystem'
 	app.run(debug=True, port=80, host='0.0.0.0')
