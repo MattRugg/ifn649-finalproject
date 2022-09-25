@@ -22,7 +22,7 @@ CredentialBuffer = dict()
 
 # maximum time credentials are allowed to be buffered before
 # becoming stale in seconds
-BUFFERING_TIME_MAX = 60*1000
+BUFFERING_TIME_MAX = 60
 
 # to keep cloud connection status
 CloudConnected = False
@@ -78,7 +78,7 @@ def on_disconnect(client, userdata, rc):
 def bufferCredential(tagID, assetID):
 	global CredentialBuffer
 	GrantTime = datetime.datetime.now()
-	CredentialBuffer[tagID + "," + assetID] = [GrantTime]
+	CredentialBuffer[tagID + "," + assetID] = GrantTime
 
 def bufferedResponse(tagID, asset):
 	key = tagID + "," + asset
