@@ -6,10 +6,10 @@ import paho.mqtt.client as mqtt
 import datetime
 
 # Building indentifier -> a raspberry pi corresponds to a building
-thisBuilding = "Building0"
+thisBuilding = "building0"
 
 # defines MQTT broker IP address
-mqttAddress = "54.193.132.176"
+mqttAddress = "52.63.215.247"
 
 # reading and writing data from and to BT serial
 # rfcomm0 corresponds to the bluetooth device representing door01
@@ -32,34 +32,39 @@ def on_connect(client, userdata, flags, rc): # func for making connection
 	CloudConnected = True
 	print("Connecting to MQTT")
 	print("Connection returned result: " + str(rc))
+	# subscribe to any emergency commands to this building
 	client.subscribe(thisBuilding + "/emergency")
-	client.subscribe(thisBuilding + "/+/access")
+	# subscribe to any access responses to any tags in this building
+	client.subscribe(thisBuilding + "/+/access/#")
 
 def on_message(client, userdata, msg): # func for sending msg
 	payload = msg.payload.decode("utf-8")
 	topicLevels = msg.topic.split('/')
 	numLevels = len(topicLevels)
+	print("numLevels ", numLevels)
 	print("### received from MQTT broker: " + msg.topic + " " + payload)
+	payload = msg.payload.decode().strip()
 
-	if nulLevels > 2:
+	if numLevels > 2:
 		building = topicLevels[0]
-		if (building == thisBuilding):
-			level2 = topicLevels[1]
-			level3 = topicLevels[2]
-			if level2 == "emergency":
-				emergencyState = "OFF" if level == "0" else "ON"
-				ser.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
-			elif numLevels > 4:
-				if level3 == "access":
-					tagID = topicLevels[3]
-					permission = "DENIED"
-					if topicLevels[4] == 1:
-						permission = "GRANTED"
-						bufferCredential(tagID, level2)
-					try:
-						serialMap[level2].write(str.encode("ACCESS," + emergencyState + "\r\n"))
-					except:
-						print("Asset not found: " + level2)
+		level2 = topicLevels[1]
+		level3 = topicLevels[2]
+		if level2 == "emergency":
+			emergencyState = "OFF" if level == "0" else "ON"
+			ser.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
+		elif numLevels == 4:
+			if level3 == "access":
+				tagID = topicLevels[3]
+				permission = "DENIED"
+				if payload == "1":
+					permission = "GRANTED"
+					bufferCredential(tagID, level2)
+				try:
+					serialMap[level2].write(str.encode("ACCESS," + permission + "\r\n"))
+					print(str.encode("ACCESS," + permission + "\r\n"))
+				except:
+					print("Asset not found: " + level2)
+					print(serialMap)
 
 def on_publish(client, obj, msg):
 	print("Published to MQTT message id: " + str(msg))
