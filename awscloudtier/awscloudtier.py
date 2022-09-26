@@ -66,13 +66,16 @@ def index():
 		session['loggedin'] = False;
 
 	if request.method == 'POST':
-		user = request.form['user']
-		pswd = request.form['pwd']
+		user = request.form.get('user', False)
+		pswd = request.form.get('pwd', False)
+		print('POST request: ', request.form)
 		if user == 'admin' and pswd == '1234':
 			session['loggedin'] = True;
 
 	if not session['loggedin']:
 		return webLogin()
+
+	return render_template('index.html')
 
 	# HTML header tags
 	retHTML  = "<html><head><title>IFN649 Assessment </title>"
