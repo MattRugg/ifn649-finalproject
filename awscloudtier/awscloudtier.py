@@ -1,3 +1,4 @@
+import datetime
 from flask import Flask, render_template, request, session
 from flask_mqtt import Mqtt
 
@@ -11,10 +12,12 @@ mqtt = Mqtt(app)
 
 permTable = dict()
 permTable['building0/door01/07003048EC93'] = 1
+permTable['building0/door02/07003048EC93'] = 0
 #permTable['building0/door01/07003048EC93'] = 1
 #permTable['building0/door01/07003048EC93'] = 1
 #permTable['building0/door01/07003048EC93'] = 1
-#permTable['building0/door01/07003048EC93'] = 1
+
+accessLog = []
 
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
@@ -41,6 +44,9 @@ def handle_mqtt_message(client, userdata, msg):
 			except:
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
+			global accessLog
+			time = datetime.datetime.now()
+			accessLog.append([building, asset, tagID, time])
 
 
 
@@ -53,8 +59,25 @@ def webLogout():
 def webLogin():
 	return render_template('login.html')
 
+@app.route('/addpermission')
+def webAddPermission():
+	if not session['loggedin']:
+		return webLogin()
+
+	if request.method == 'POST':
+		building = request.form.get('building', False)
+		asset = request.form.get('asset', False)
+		tagid = request.form.get('tagid', False)
+		permisison = request.form.get('permission', False)
+		permTable[building + '/' + asset + '/' + tagid] = permission
+
+	return render_template('index.html')
+
 @app.route('/emergency')
 def webEmergency():
+	if not session['loggedin']:
+		return webLogin()
+
 	mqtt.publish('led','on')
 	return index()
 
@@ -76,26 +99,6 @@ def index():
 		return webLogin()
 
 	return render_template('index.html')
-
-	# HTML header tags
-	retHTML  = "<html><head><title>IFN649 Assessment </title>"
-
-	# basic styling
-	retHTML += "<style>body{font-family:verdana;font-size:14px;background-color: #eee;}"
-	retHTML += "a{padding:15px;text-align:center;color:black;margin:5px;border-radius:10px;display:inline-block;text-decoration:none;background-image:linear-gradient(to bottom right, cyan, #c6f6c6);}"
-	retHTML += "div{margin:auto;width:400px;border-radius:10px;background-color:white;padding:10px 30px 20px}</style></head>"
-
-	# Title block
-	retHTML += "<body><div style='margin-top:40px;margin-bottom:10px;background-image:linear-gradient(to bottom right, cyan, #c6f6c6)'><h2>IFN649 Assessment 1</h2></h3>Matheus Cavalca Ruggiero<br />N10913556</h3></div>"
-
-	# update fields according to MQTT messages
-	retHTML += "<div><p>logged in</p>"
-
-	# operate actuators
-	retHTML += "<a href='/logout'>Logout</a>"
-
-	retHTML += "</div></body></html>"
-	return retHTML
 
 if __name__ == '__main__':
 	app.secret_key = 'supersecretkey'
