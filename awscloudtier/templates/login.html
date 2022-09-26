@@ -5,31 +5,32 @@
 <style>
 body{padding-top:50px;background-color: #eee;}
 a{padding:15px;text-align:center;color:black;margin:5px;border-radius:10px;display:inline-block;text-decoration:none;background-image:linear-gradient(to bottom right, cyan, #c6f6c6);}
+.box-shadow { border:none;box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05); }
 </style>
 </head>
 <body>
-<div class="container" style="max-width:500px;">
+<div class="container" style="max-width:420px;">
   <div class="col">
-    <div class="card">
+    <div class="card box-shadow">
       <div class="card-header">
-        <h2>Cloud-based Building Access Management System</h2>
+        <h4>Cloud-based Building Access Management System</h4>
       </div>
       <div class="card-body">
         <h5 class="card-title">Login</h5>
         <form action="/" method="post">
             <div class="mb-3">
                 <label for="user" class="form-label">Username</label>
-                <input type="text" class="form-control" name="user" id="user"/>
+                <input type="text" class="form-control form-control-sm" name="user" id="user"/>
             </div>
             <div class="mb-3">
                 <label for="pwd" class="form-label">Password</label>
-                <input type="password" class="form-control" name="pwd" id="pwd"/>
+                <input type="password" class="form-control form-control-sm" name="pwd" id="pwd"/>
             </div>
             <button type="submit" class="btn btn-primary">Log in</button>
         </form>
       </div>
       <div class="card-footer text-muted">
-        </h3>IFN649 Final Project<br/>Matheus Cavalca Ruggiero<br />N10913556</h3>
+      <p>IFN649 Final Project<br />Matheus Cavalca Ruggiero<br />N10913556</p>
       </div> 
     </div>
   </div>
