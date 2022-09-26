@@ -69,7 +69,7 @@ def index():
 		user = request.form.get('user', False)
 		pswd = request.form.get('pwd', False)
 		print('POST request: ', request.form)
-		if user == 'admin' and pswd == '1234':
+		if user == 'admin' and pswd == 'exxscuseme77!!a':
 			session['loggedin'] = True;
 
 	if not session['loggedin']:
