@@ -66,8 +66,10 @@ def webAddPermission():
 		building = request.form.get('building', 'invalid building')
 		asset = request.form.get('asset', 'invalid asset')
 		tagid = request.form.get('tagId', 'invalid tag')
-		permission = request.form.get('grantAccess', 0)
+		permission = request.form.get('grantAccess', 'off')
+		permission = 1 if permission == 'on' else 0
 		permTable[building + '/' + asset + '/' + tagid] = [building, asset, tagid, permission]
+		print('POST request: ', request.form)
 		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission entry added")
 
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to add")
@@ -88,8 +90,8 @@ def index():
 		session['loggedin'] = False;
 
 	if request.method == 'POST':
-		user = request.form.get('user', False)
-		pswd = request.form.get('pwd', False)
+		user = request.form.get('user', '')
+		pswd = request.form.get('pwd', '')
 		print('POST request: ', request.form)
 		if user == 'admin' and pswd == 'exxscuseme77!!a':
 			session['loggedin'] = True;
