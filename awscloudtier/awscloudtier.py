@@ -1,6 +1,8 @@
 import datetime
 from flask import Flask, render_template, request, session
 from flask_mqtt import Mqtt
+import urllib
+from markupsafe import Markup
 
 app = Flask(__name__)
 app.config['MQTT_BROKER_URL'] = 'localhost'  # use the free broker from HIVEMQ
@@ -48,6 +50,14 @@ def handle_mqtt_message(client, userdata, msg):
 
 
 
+@app.template_filter('urlencode')
+def urlencode_filter(s):
+	if type(s) == 'Markup':
+		s = s.unescape()
+	s = s.encode('utf8')
+	s = urllib.parse.quote_plus(s)
+	return Markup(s)
+
 @app.route('/logout')
 def webLogout():
 	session['loggedin'] = False
@@ -56,6 +66,19 @@ def webLogout():
 @app.route('/login')
 def webLogin():
 	return render_template('login.html')
+
+@app.route('/removepermission', methods=['GET', 'POST'])
+def webRemovePermission():
+	if not session['loggedin']:
+		return webLogin()
+
+	permissionItemId = request.args.get('id', '')
+	permissionItemId = urllib.parse.unquote(permissionItemId)
+	if permissionItemId in permTable:
+		permTable.pop(permissionItemId)
+		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission removed")
+
+	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to remove")
 
 @app.route('/addpermission', methods = ['POST','GET'])
 def webAddPermission():
