@@ -11,11 +11,8 @@ app.config['MQTT_TLS_ENABLED'] = False  # set TLS to disabled for testing purpos
 mqtt = Mqtt(app)
 
 permTable = dict()
-permTable['building0/door01/07003048EC93'] = 1
-permTable['building0/door02/07003048EC93'] = 0
-#permTable['building0/door01/07003048EC93'] = 1
-#permTable['building0/door01/07003048EC93'] = 1
-#permTable['building0/door01/07003048EC93'] = 1
+permTable['building0/door01/07003048EC93'] = ['building0','door01','07003048EC93',1]
+permTable['building0/door02/07003048EC93'] = ['building0','door02','07003048EC93',0]
 
 accessLog = []
 
@@ -39,14 +36,15 @@ def handle_mqtt_message(client, userdata, msg):
 			access = '0'
 			try:
 				idx = building + '/' + asset + '/' + tagID
-				if permTable[idx] == 1:
+				permItem = permTable[idx]
+				if permItem[3] == 1:
 					access = '1'
 			except:
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
 			global accessLog
 			time = datetime.datetime.now()
-			accessLog.append([building, asset, tagID, time])
+			accessLog.append([building, asset, tagID, access, time])
 
 
 
@@ -59,19 +57,20 @@ def webLogout():
 def webLogin():
 	return render_template('login.html')
 
-@app.route('/addpermission')
+@app.route('/addpermission', methods = ['POST','GET'])
 def webAddPermission():
 	if not session['loggedin']:
 		return webLogin()
 
 	if request.method == 'POST':
-		building = request.form.get('building', False)
-		asset = request.form.get('asset', False)
-		tagid = request.form.get('tagid', False)
-		permisison = request.form.get('permission', False)
-		permTable[building + '/' + asset + '/' + tagid] = permission
+		building = request.form.get('building', 'invalid building')
+		asset = request.form.get('asset', 'invalid asset')
+		tagid = request.form.get('tagId', 'invalid tag')
+		permission = request.form.get('grantAccess', 0)
+		permTable[building + '/' + asset + '/' + tagid] = [building, asset, tagid, permission]
+		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission entry added")
 
-	return render_template('index.html')
+	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to add")
 
 @app.route('/emergency')
 def webEmergency():
@@ -98,7 +97,7 @@ def index():
 	if not session['loggedin']:
 		return webLogin()
 
-	return render_template('index.html')
+	return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
 
 if __name__ == '__main__':
 	app.secret_key = 'supersecretkey'
