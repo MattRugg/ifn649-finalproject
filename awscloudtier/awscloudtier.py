@@ -12,9 +12,88 @@ app.config['MQTT_TLS_ENABLED'] = False  # set TLS to disabled for testing purpos
 
 mqtt = Mqtt(app)
 
-permTable = dict()
-permTable['building0/door01/07003048EC93'] = ['building0','door01','07003048EC93',1]
-permTable['building0/door02/07003048EC93'] = ['building0','door02','07003048EC93',0]
+# Creates our own hash as the native Python function
+# has a random seed which will mess the permissions
+# table usage
+def Hash(text:str):
+	hash=0
+	for ch in text:
+		hash = ( hash*281  ^ ord(ch)*997) & 0xFFFFFFFF
+	return hash
+
+# Reads permission entry from permission table file
+def getPermEntry(hash):
+	hashS = str(hash)
+	Lines = []
+	# Using readlines()
+	with open('permtable.txt', 'r') as permFile:
+		Lines = permFile.readlines()
+	for line in Lines:
+		# split comma separated lines
+		nline = line.strip('\n')
+		lineItems = nline.split(",")
+		if hashS == lineItems[0]:
+			return [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
+	return None
+
+# Adds a new permission entry to the permissions table file
+def addPermEntry(building, asset, tagId, permission):
+	entryHash = Hash(building + '/' + asset + '/' + tagId)
+	# check if entry already exists
+	entryExisting = getPermEntry(entryHash)
+	# add if it does not exist
+	if entryExisting is None:
+		with open('permtable.txt', mode='a+') as permFile:
+			permFile.write(str(entryHash) + ',' + building + ',' + asset + ',' + tagId + ',' + permission + '\n')
+		return True
+	# TODO update it if already exists
+	return False
+
+# Remove an entry from the permissions table file
+def removePermEntry(hash):
+	with open("permtable.txt", "r") as f:
+		lines = f.readlines()
+	with open("permtable.txt", "w") as f:
+		for line in lines:
+			items = line.split(',')
+			thisHash = items[0]
+			if thisHash != str(hash):
+				f.write(line)
+
+# Remove an entry from the permissions table file
+def togglePermEntry(hash):
+	with open("permtable.txt", "r") as f:
+		lines = f.readlines()
+	with open("permtable.txt", "w") as f:
+		for line in lines:
+			nline = line.strip('\n')
+			items = nline.split(',')
+			newHash = Hash(items[1] + '/' + items[2] + '/' + item[3])
+			newPerm = 0 if items[4] == 1 else 1
+			if items[0] == str(hash):
+				permFile.write(str(entryHash) + ',' + item[1] + ',' + item[2] + ',' + item[3] + ',' + newPerm + '\n')
+			else:
+				f.write(line)
+
+# Reads permission entry from permission table file
+def getPermTable():
+	Lines = []
+	permTable = dict()
+	# Read all lines onto permTable
+	with open('permtable.txt', 'r') as permFile:
+		Lines = permFile.readlines()
+	count = 0
+	for line in Lines:
+		# split comma separated lines
+		nline = line.strip('\n')
+		lineItems = nline.split(",")
+		permTable[lineItems[0]] = [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
+	print(permTable)
+	return permTable
+
+# Add default entries if necesary
+addPermEntry('building0','door01','07003048EC93','1')
+addPermEntry('building0','door02','07003048EC93','0')
 
 accessLog = []
 
@@ -37,10 +116,11 @@ def handle_mqtt_message(client, userdata, msg):
 		if tagswipe == "tagswipe":
 			access = '0'
 			try:
-				idx = building + '/' + asset + '/' + tagID
-				permItem = permTable[idx]
-				if permItem[3] == 1:
-					access = '1'
+				hash = Hash(building + '/' + asset + '/' + tagID)
+				permItem = getPermEntry(hash)
+				if permItem is not None:
+					if permItem[3] == '1':
+						access = '1'
 			except:
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
@@ -73,11 +153,14 @@ def webRemovePermission():
 		return webLogin()
 
 	permissionItemId = request.args.get('id', '')
-	permissionItemId = urllib.parse.unquote(permissionItemId)
-	if permissionItemId in permTable:
-		permTable.pop(permissionItemId)
+	permissionItemId = int(urllib.parse.unquote(permissionItemId))
+	permItem = getPermEntry(permissionItemId)
+	if permissionItemId is not None:
+		removePermEntry(permissionItemId)
+		permTable = getPermTable()
 		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission removed")
 
+	permTable = getPermTable()
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to remove")
 
 @app.route('/addpermission', methods = ['POST','GET'])
@@ -91,10 +174,12 @@ def webAddPermission():
 		tagid = request.form.get('tagId', 'invalid tag')
 		permission = request.form.get('grantAccess', 'off')
 		permission = 1 if permission == 'on' else 0
-		permTable[building + '/' + asset + '/' + tagid] = [building, asset, tagid, permission]
+		addPermEntry(building, asset, tagid, permission)
 		print('POST request: ', request.form)
+		permTable = getPermTable()
 		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission entry added")
 
+	permTable = getPermTable()
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to add")
 
 @app.route('/emergency')
@@ -122,6 +207,7 @@ def index():
 	if not session['loggedin']:
 		return webLogin()
 
+	permTable = getPermTable()
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
 
 if __name__ == '__main__':
