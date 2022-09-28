@@ -74,7 +74,7 @@
             </div>
             <div class="input-group mb-3">
               <span class="input-group-text" style="width:90px">Tag ID</span>
-              <input type="text" class="form-control form-control-sm" placeholder="AABBCCDDEEFFGG"  id="tagId" name="tagId">
+              <input type="text" class="form-control form-control-sm" placeholder="AABBCCDDEEFF"  id="tagId" name="tagId">
             </div>
             <div class="col-6 my-3 form-switch text-center">
               <input class="form-check-input" type="checkbox" id="grantAccess" name="grantAccess">
@@ -107,11 +107,13 @@
           <div class="col-3">{{ permItem[1] }}</div>
           <div class="col-2">{{ permItem[2] }}</div>
           <div class="col-2 text-center">
+            <a href="/togglepermission?id={{ key | urlencode }}">
             {% if permItem[3] == '1': %}
-            <span class="badge rounded-pill bg-success">ALLOW</span>
+            <span class="badge rounded-pill bg-success">GRANT</span>
             {% else %}
             <span class="badge rounded-pill bg-danger">DENY</span>
             {% endif %}
+            </a>
           </div>
           <div class="col-2 text-center">
             <a href="/removepermission?id={{ key | urlencode }}">
@@ -143,7 +145,7 @@
           <div class="col-2">{{logItem[2]}}</div>
           <div class="col-2 text-center">
           {% if logItem[3] == '1': %}
-          <span class="badge rounded-pill bg-success">ALLOWED</span>
+          <span class="badge rounded-pill bg-success">GRANTED</span>
           {% else %}
           <span class="badge rounded-pill bg-danger">DENIED</span>
           {% endif %}

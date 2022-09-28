@@ -12,6 +12,9 @@ app.config['MQTT_TLS_ENABLED'] = False  # set TLS to disabled for testing purpos
 
 mqtt = Mqtt(app)
 
+# Structure will hold access history
+accessLog = []
+
 # Creates our own hash as the native Python function
 # has a random seed which will mess the permissions
 # table usage
@@ -68,10 +71,10 @@ def togglePermEntry(hash):
 		for line in lines:
 			nline = line.strip('\n')
 			items = nline.split(',')
-			newHash = Hash(items[1] + '/' + items[2] + '/' + item[3])
-			newPerm = 0 if items[4] == 1 else 1
+			newHash = Hash(items[1] + '/' + items[2] + '/' + items[3])
+			newPerm = '0' if items[4] == '1' else '1'
 			if items[0] == str(hash):
-				permFile.write(str(entryHash) + ',' + item[1] + ',' + item[2] + ',' + item[3] + ',' + newPerm + '\n')
+				f.write(str(newHash) + ',' + items[1] + ',' + items[2] + ',' + items[3] + ',' + newPerm + '\n')
 			else:
 				f.write(line)
 
@@ -88,14 +91,7 @@ def getPermTable():
 		nline = line.strip('\n')
 		lineItems = nline.split(",")
 		permTable[lineItems[0]] = [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
-	print(permTable)
 	return permTable
-
-# Add default entries if necesary
-addPermEntry('building0','door01','07003048EC93','1')
-addPermEntry('building0','door02','07003048EC93','0')
-
-accessLog = []
 
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
@@ -163,6 +159,22 @@ def webRemovePermission():
 	permTable = getPermTable()
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to remove")
 
+@app.route('/togglepermission', methods=['GET', 'POST'])
+def webTogglePermission():
+	if not session['loggedin']:
+		return webLogin()
+
+	permissionItemId = request.args.get('id', '')
+	permissionItemId = int(urllib.parse.unquote(permissionItemId))
+	permItem = getPermEntry(permissionItemId)
+	if permissionItemId is not None:
+		togglePermEntry(permissionItemId)
+		permTable = getPermTable()
+		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission changed")
+
+	permTable = getPermTable()
+	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to change")
+
 @app.route('/addpermission', methods = ['POST','GET'])
 def webAddPermission():
 	if not session['loggedin']:
@@ -173,7 +185,7 @@ def webAddPermission():
 		asset = request.form.get('asset', 'invalid asset')
 		tagid = request.form.get('tagId', 'invalid tag')
 		permission = request.form.get('grantAccess', 'off')
-		permission = 1 if permission == 'on' else 0
+		permission = '1' if permission == 'on' else '0'
 		addPermEntry(building, asset, tagid, permission)
 		print('POST request: ', request.form)
 		permTable = getPermTable()
@@ -209,6 +221,12 @@ def index():
 
 	permTable = getPermTable()
 	return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
+
+# Add default entries if necesary
+addPermEntry('building0','door01','07003048EC93','1')
+addPermEntry('building0','door02','07003048EC93','0')
+addPermEntry('building0','door01','0B0042739CA6','0')
+addPermEntry('building0','door02','0B0042739CA6','1')
 
 if __name__ == '__main__':
 	app.secret_key = 'supersecretkey'
