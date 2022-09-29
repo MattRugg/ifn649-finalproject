@@ -14,6 +14,9 @@ mqtt = Mqtt(app)
 
 # Structure will hold access history
 accessLog = []
+# Set to True whenever an access entry has been added
+# or permission has changed so the page can be updated
+infoUpdated = False
 
 # Creates our own hash as the native Python function
 # has a random seed which will mess the permissions
@@ -120,11 +123,11 @@ def handle_mqtt_message(client, userdata, msg):
 			except:
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
-			global accessLog
+			global accessLog, infoUpdated
 			time = datetime.datetime.now()
 			accessLog.append([building, asset, tagID, access, time])
-
-
+			infoUpdated = True
+			print("access updated")
 
 @app.template_filter('urlencode')
 def urlencode_filter(s):
@@ -133,6 +136,23 @@ def urlencode_filter(s):
 	s = s.encode('utf8')
 	s = urllib.parse.quote_plus(s)
 	return Markup(s)
+
+@app.route('/update')
+def webUpdate(message=''):
+	global infoUpdated
+
+	# default answer: no updates were made
+	jsonResponse = '{"update":false}'
+
+	if not session['loggedin']:
+		return jsonResponse
+
+	if infoUpdated:
+		jsonResponse = '{"update":true,"message":"'
+		jsonResponse += message+'"}'
+		infoUpdated = False
+
+	return jsonResponse
 
 @app.route('/logout')
 def webLogout():
@@ -146,34 +166,38 @@ def webLogin():
 @app.route('/removepermission', methods=['GET', 'POST'])
 def webRemovePermission():
 	if not session['loggedin']:
-		return webLogin()
+		return webUpdate()
 
 	permissionItemId = request.args.get('id', '')
 	permissionItemId = int(urllib.parse.unquote(permissionItemId))
 	permItem = getPermEntry(permissionItemId)
-	if permissionItemId is not None:
+	if permissionItemId is None:
+		retMessage = "Could not remove permission because it does not exist"
+	else:
+		retMessage = "Permission record removed"
+		global infoUpdated
 		removePermEntry(permissionItemId)
-		permTable = getPermTable()
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission removed")
+		infoUpdated = True
 
-	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to remove")
+	return webUpdate(retMessage)
 
 @app.route('/togglepermission', methods=['GET', 'POST'])
 def webTogglePermission():
 	if not session['loggedin']:
-		return webLogin()
+		return webUpdate()
 
 	permissionItemId = request.args.get('id', '')
 	permissionItemId = int(urllib.parse.unquote(permissionItemId))
 	permItem = getPermEntry(permissionItemId)
-	if permissionItemId is not None:
+	if permissionItemId is None:
+		retMessage = "Could not toggle permission because it does not exist"
+	else:
+		retMessage = "Permission record changed"
+		global infoUpdated
 		togglePermEntry(permissionItemId)
-		permTable = getPermTable()
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission changed")
+		infoUpdated = True
 
-	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to change")
+	return webUpdate(retMessage)
 
 @app.route('/addpermission', methods = ['POST','GET'])
 def webAddPermission():
@@ -187,7 +211,6 @@ def webAddPermission():
 		permission = request.form.get('grantAccess', 'off')
 		permission = '1' if permission == 'on' else '0'
 		addPermEntry(building, asset, tagid, permission)
-		print('POST request: ', request.form)
 		permTable = getPermTable()
 		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission entry added")
 
@@ -200,10 +223,10 @@ def webEmergency():
 		return webLogin()
 
 	mqtt.publish('led','on')
-	return index()
+	return webIndex()
 
 @app.route('/', methods = ['POST','GET'])
-def index():
+def webIndex():
 	# We need to make sure the web user has been
 	# authenticated before using the system.
 	if 'loggedin' not in session:
@@ -212,15 +235,18 @@ def index():
 	if request.method == 'POST':
 		user = request.form.get('user', '')
 		pswd = request.form.get('pwd', '')
-		print('POST request: ', request.form)
 		if user == 'admin' and pswd == 'exxscuseme77!!a':
 			session['loggedin'] = True;
+		message = request.form.get('message', '')
 
 	if not session['loggedin']:
 		return webLogin()
 
 	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
+	if 'message' in locals():
+		return render_template('index.html',permissionTable=permTable,accessLog=accessLog,message=message)
+	else:
+		return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
 
 # Add default entries if necesary
 addPermEntry('building0','door01','07003048EC93','1')
