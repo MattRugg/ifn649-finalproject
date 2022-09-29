@@ -17,6 +17,8 @@ accessLog = []
 # Set to True whenever an access entry has been added
 # or permission has changed so the page can be updated
 infoUpdated = False
+# All buildings listed in the permissions file
+buildingTable = []
 
 # Creates our own hash as the native Python function
 # has a random seed which will mess the permissions
@@ -31,7 +33,7 @@ def Hash(text:str):
 def getPermEntry(hash):
 	hashS = str(hash)
 	Lines = []
-	# Using readlines()
+
 	with open('permtable.txt', 'r') as permFile:
 		Lines = permFile.readlines()
 	for line in Lines:
@@ -42,6 +44,26 @@ def getPermEntry(hash):
 			return [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
 	return None
 
+# Checks if building already exists in the building file
+def hasBuilding(building):
+	Lines = []
+
+	with open('buildings.txt', 'r') as buildingFile:
+		Lines = buildingFile.readlines()
+	for line in Lines:
+		if building == line.strip('\n'):
+			return True
+	return False
+
+# Adds a new building to the building table file
+def addBuilding(building):
+	# add building if it does not exist
+	if not hasBuilding(building):
+		with open('buildings.txt', mode='a+') as permFile:
+			permFile.write(building + '\n')
+		return True
+	return False
+
 # Adds a new permission entry to the permissions table file
 def addPermEntry(building, asset, tagId, permission):
 	entryHash = Hash(building + '/' + asset + '/' + tagId)
@@ -51,6 +73,7 @@ def addPermEntry(building, asset, tagId, permission):
 	if entryExisting is None:
 		with open('permtable.txt', mode='a+') as permFile:
 			permFile.write(str(entryHash) + ',' + building + ',' + asset + ',' + tagId + ',' + permission + '\n')
+		addBuilding(building)
 		return True
 	# TODO update it if already exists
 	return False
@@ -88,13 +111,23 @@ def getPermTable():
 	# Read all lines onto permTable
 	with open('permtable.txt', 'r') as permFile:
 		Lines = permFile.readlines()
-	count = 0
 	for line in Lines:
 		# split comma separated lines
 		nline = line.strip('\n')
 		lineItems = nline.split(",")
 		permTable[lineItems[0]] = [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
 	return permTable
+
+# Reads permission entry from permission table file
+def getBuildingTable():
+	Lines = []
+	buildingTable = []
+	# Read all lines onto buildingTable
+	with open('buildings.txt', 'r') as buildingFile:
+		Lines = buildingFile.readlines()
+	for line in Lines:
+		buildingTable.append(line.strip('n'))
+	return buildingTable
 
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
@@ -243,10 +276,11 @@ def webIndex():
 		return webLogin()
 
 	permTable = getPermTable()
+	buildingTable = getBuildingTable()
 	if 'message' in locals():
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog,message=message)
+		return render_template('index.html',permissionTable=permTable,buildingTable=buildingTable,accessLog=accessLog,message=message)
 	else:
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
+		return render_template('index.html',permissionTable=permTable,buildingTable=buildingTable,accessLog=accessLog)
 
 # Add default entries if necesary
 addPermEntry('building0','door01','07003048EC93','1')
