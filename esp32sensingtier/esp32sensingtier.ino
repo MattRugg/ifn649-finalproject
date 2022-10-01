@@ -71,6 +71,7 @@ void loop() {
           {
             if (command == "EMERGENCY,OFF") {
               Serial.println("Emergency off");
+              buzzerTrackStop();
               inEmergencyMode = false;
               doorLatchClose();
             }
@@ -88,6 +89,7 @@ void loop() {
             }
             else if (command == "EMERGENCY,ON") {
               Serial.println("Emergency on");
+              buzzerPlayTrack(3);
               inEmergencyMode = true;
               doorLatchKeepOpen();
             }        
