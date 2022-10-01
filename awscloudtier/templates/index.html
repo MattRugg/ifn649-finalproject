@@ -12,7 +12,7 @@
   </head>
   <body class="bg-light" data-new-gr-c-s-check-loaded="14.1079.0" data-gr-ext-installed="">
 
-    <main role="main" class="container" style="max-width:720px;">
+    <main role="main" id="main" class="container" style="max-width:720px;">
       <div class="row pt-3 my-3">
         <div class="col-1">
           <img src="static/img/logo.svg" style="margin-top:3px;" width="50px"/>
@@ -56,7 +56,7 @@
             <div class="row p-1 m-1">
               <div class="col-6">{{building}}</div>
               <div class="col-6 form-switch text-center">
-                <input class="form-check-input" type="checkbox" id="emergency">
+                <input class="form-check-input" type="checkbox" id="emergency{{building}}" onclick="triggerEmergency('{{building}}')">
                 <!--<input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" checked="">-->
               </div>
             </div>
@@ -171,13 +171,42 @@ function updateAccess() {
   update('/update')
 }
 
+function triggerEmergency(building) {
+const xhr = new XMLHttpRequest();
+var state = document.getElementById('emergency'+building).checked;
+xhr.open("GET", "/emergency?building="+building+"&state="+ state);
+  xhr.onload = (e) => {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        const obj = JSON.parse(xhr.responseText);
+        var msg = obj.message;
+        if (obj.emergencyState) {
+          alertDiv = document.getElementById('alertDiv');
+          if (alertDiv == null) {
+            main = document.getElementById('main');
+            emergencyAlert = '<div class="row">';
+            emergencyAlert += '<div class="col-12">';
+            emergencyAlert += '<div class="alert alert-primary fade show rounded box-shadow" role="alertDiv" id="alertDiv" style="border:$            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-exclamation$              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>';
+            emergencyAlert += '<path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-$            </svg>';
+            emergencyAlert += obj.message;
+            emergencyAlert += '</div></div></div>';
+            main.innerHTML = emergencyAlert + main.innerHTML;
+          }
+          document.getElementById('hiddenForm').submit();
+        }
+      }
+    }
+  };
+  xhr.send(null);
+}
+
 function update(url) {
 const xhr = new XMLHttpRequest();
 xhr.open("GET", url, true);
   xhr.onload = (e) => {
     if (xhr.readyState === 4) {
       if (xhr.status === 200) {
-        const obj = JSON.parse(xhr.responseText)
+        const obj = JSON.parse(xhr.responseText);
         if (obj.update) {
           var msg = obj.message;
           document.getElementById('message').value = msg;

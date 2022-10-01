@@ -126,7 +126,7 @@ def getBuildingTable():
 	with open('buildings.txt', 'r') as buildingFile:
 		Lines = buildingFile.readlines()
 	for line in Lines:
-		buildingTable.append(line.strip('n'))
+		buildingTable.append(line.strip('\n'))
 	return buildingTable
 
 @mqtt.on_connect()
@@ -252,11 +252,25 @@ def webAddPermission():
 
 @app.route('/emergency')
 def webEmergency():
-	if not session['loggedin']:
-		return webLogin()
+	jsonResponse = '{"triggered":false,"message":"You are not logged in"}';
 
-	mqtt.publish('led','on')
-	return webIndex()
+	if not session['loggedin']:
+		return jsonResponse
+
+	emergencyReq = request.args.get('state', 'false')
+	emergencyStateReq = True if emergencyReq == 'true' else False;
+	print('state ',emergencyStateReq)
+	building = request.args.get('building', 'no building')
+	if (emergencyStateReq):
+		jsonResponse = '{"triggered":true,"message":"Emergency triggered for '
+		jsonResponse += building +'"}';
+		mqtt.publish(building + '/emergency','1')
+	else:
+		jsonResponse = '{"triggered":false,"message":"Emergency terminate for'
+		jsonResponse += building +'"}';
+		mqtt.publish(building + '/emergency','0')
+
+	return jsonResponse
 
 @app.route('/', methods = ['POST','GET'])
 def webIndex():
