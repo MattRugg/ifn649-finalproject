@@ -45,14 +45,15 @@ def on_message(client, userdata, msg): # func for sending msg
 	print("### received from MQTT broker: " + msg.topic + " " + payload)
 	payload = msg.payload.decode().strip()
 
-	if numLevels > 2:
+	if numLevels > 1:
 		building = topicLevels[0]
 		level2 = topicLevels[1]
-		level3 = topicLevels[2]
 		if level2 == "emergency":
-			emergencyState = "OFF" if level == "0" else "ON"
+			emergencyState = "ON" if payload == "1" else "OFF"
+			print("emergency state: ", emergencyState)
 			ser.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
 		elif numLevels == 4:
+			level3 = topicLevels[2]
 			if level3 == "access":
 				tagID = topicLevels[3]
 				permission = "DENIED"
@@ -121,7 +122,7 @@ def processAllSerials():
 				if values[0] == "TAGSWIPE":
 					TagID = values[1]
 					if CloudConnected :
-						client.publish(thisBuilding +"/" + asset + "/tagswipe", TagID)
+						client.publish(thisBuilding +"/" + asset + "/tagswipe", TagID, qos=2)
 						print("published: " +thisBuilding +"/" + asset + "/tagswipe/" + TagID)
 					else:
 						bufferedResponse(TagID, asset)
