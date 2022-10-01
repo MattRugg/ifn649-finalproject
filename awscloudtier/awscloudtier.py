@@ -14,6 +14,11 @@ mqtt = Mqtt(app)
 
 # Structure will hold access history
 accessLog = []
+# Set to True whenever an access entry has been added
+# or permission has changed so the page can be updated
+infoUpdated = False
+# All buildings listed in the permissions file
+buildingTable = []
 
 # Creates our own hash as the native Python function
 # has a random seed which will mess the permissions
@@ -28,7 +33,7 @@ def Hash(text:str):
 def getPermEntry(hash):
 	hashS = str(hash)
 	Lines = []
-	# Using readlines()
+
 	with open('permtable.txt', 'r') as permFile:
 		Lines = permFile.readlines()
 	for line in Lines:
@@ -39,6 +44,26 @@ def getPermEntry(hash):
 			return [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
 	return None
 
+# Checks if building already exists in the building file
+def hasBuilding(building):
+	Lines = []
+
+	with open('buildings.txt', 'r') as buildingFile:
+		Lines = buildingFile.readlines()
+	for line in Lines:
+		if building == line.strip('\n'):
+			return True
+	return False
+
+# Adds a new building to the building table file
+def addBuilding(building):
+	# add building if it does not exist
+	if not hasBuilding(building):
+		with open('buildings.txt', mode='a+') as permFile:
+			permFile.write(building + '\n')
+		return True
+	return False
+
 # Adds a new permission entry to the permissions table file
 def addPermEntry(building, asset, tagId, permission):
 	entryHash = Hash(building + '/' + asset + '/' + tagId)
@@ -48,6 +73,7 @@ def addPermEntry(building, asset, tagId, permission):
 	if entryExisting is None:
 		with open('permtable.txt', mode='a+') as permFile:
 			permFile.write(str(entryHash) + ',' + building + ',' + asset + ',' + tagId + ',' + permission + '\n')
+		addBuilding(building)
 		return True
 	# TODO update it if already exists
 	return False
@@ -85,13 +111,23 @@ def getPermTable():
 	# Read all lines onto permTable
 	with open('permtable.txt', 'r') as permFile:
 		Lines = permFile.readlines()
-	count = 0
 	for line in Lines:
 		# split comma separated lines
 		nline = line.strip('\n')
 		lineItems = nline.split(",")
 		permTable[lineItems[0]] = [lineItems[1], lineItems[2], lineItems[3], lineItems[4]]
 	return permTable
+
+# Reads permission entry from permission table file
+def getBuildingTable():
+	Lines = []
+	buildingTable = []
+	# Read all lines onto buildingTable
+	with open('buildings.txt', 'r') as buildingFile:
+		Lines = buildingFile.readlines()
+	for line in Lines:
+		buildingTable.append(line.strip('\n'))
+	return buildingTable
 
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
@@ -120,11 +156,11 @@ def handle_mqtt_message(client, userdata, msg):
 			except:
 				print("Not record found in the permissions Table: ", idx)
 			mqtt.publish(building + '/' + asset +'/access/' + tagID, access)
-			global accessLog
+			global accessLog, infoUpdated
 			time = datetime.datetime.now()
 			accessLog.append([building, asset, tagID, access, time])
-
-
+			infoUpdated = True
+			print("access updated")
 
 @app.template_filter('urlencode')
 def urlencode_filter(s):
@@ -133,6 +169,23 @@ def urlencode_filter(s):
 	s = s.encode('utf8')
 	s = urllib.parse.quote_plus(s)
 	return Markup(s)
+
+@app.route('/update')
+def webUpdate(message=''):
+	global infoUpdated
+
+	# default answer: no updates were made
+	jsonResponse = '{"update":false}'
+
+	if not session['loggedin']:
+		return jsonResponse
+
+	if infoUpdated:
+		jsonResponse = '{"update":true,"message":"'
+		jsonResponse += message+'"}'
+		infoUpdated = False
+
+	return jsonResponse
 
 @app.route('/logout')
 def webLogout():
@@ -146,34 +199,38 @@ def webLogin():
 @app.route('/removepermission', methods=['GET', 'POST'])
 def webRemovePermission():
 	if not session['loggedin']:
-		return webLogin()
+		return webUpdate()
 
 	permissionItemId = request.args.get('id', '')
 	permissionItemId = int(urllib.parse.unquote(permissionItemId))
 	permItem = getPermEntry(permissionItemId)
-	if permissionItemId is not None:
+	if permissionItemId is None:
+		retMessage = "Could not remove permission because it does not exist"
+	else:
+		retMessage = "Permission record removed"
+		global infoUpdated
 		removePermEntry(permissionItemId)
-		permTable = getPermTable()
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission removed")
+		infoUpdated = True
 
-	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to remove")
+	return webUpdate(retMessage)
 
 @app.route('/togglepermission', methods=['GET', 'POST'])
 def webTogglePermission():
 	if not session['loggedin']:
-		return webLogin()
+		return webUpdate()
 
 	permissionItemId = request.args.get('id', '')
 	permissionItemId = int(urllib.parse.unquote(permissionItemId))
 	permItem = getPermEntry(permissionItemId)
-	if permissionItemId is not None:
+	if permissionItemId is None:
+		retMessage = "Could not toggle permission because it does not exist"
+	else:
+		retMessage = "Permission record changed"
+		global infoUpdated
 		togglePermEntry(permissionItemId)
-		permTable = getPermTable()
-		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission changed")
+		infoUpdated = True
 
-	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Nothing to change")
+	return webUpdate(retMessage)
 
 @app.route('/addpermission', methods = ['POST','GET'])
 def webAddPermission():
@@ -187,7 +244,6 @@ def webAddPermission():
 		permission = request.form.get('grantAccess', 'off')
 		permission = '1' if permission == 'on' else '0'
 		addPermEntry(building, asset, tagid, permission)
-		print('POST request: ', request.form)
 		permTable = getPermTable()
 		return render_template('index.html',permissionTable=permTable,accessLog=accessLog, message="Permission entry added")
 
@@ -196,14 +252,28 @@ def webAddPermission():
 
 @app.route('/emergency')
 def webEmergency():
-	if not session['loggedin']:
-		return webLogin()
+	jsonResponse = '{"triggered":false,"message":"You are not logged in"}';
 
-	mqtt.publish('led','on')
-	return index()
+	if not session['loggedin']:
+		return jsonResponse
+
+	emergencyReq = request.args.get('state', 'false')
+	emergencyStateReq = True if emergencyReq == 'true' else False;
+	print('state ',emergencyStateReq)
+	building = request.args.get('building', 'no building')
+	if (emergencyStateReq):
+		jsonResponse = '{"triggered":true,"message":"Emergency triggered for '
+		jsonResponse += building +'"}';
+		mqtt.publish(building + '/emergency','1')
+	else:
+		jsonResponse = '{"triggered":false,"message":"Emergency terminate for'
+		jsonResponse += building +'"}';
+		mqtt.publish(building + '/emergency','0')
+
+	return jsonResponse
 
 @app.route('/', methods = ['POST','GET'])
-def index():
+def webIndex():
 	# We need to make sure the web user has been
 	# authenticated before using the system.
 	if 'loggedin' not in session:
@@ -212,15 +282,19 @@ def index():
 	if request.method == 'POST':
 		user = request.form.get('user', '')
 		pswd = request.form.get('pwd', '')
-		print('POST request: ', request.form)
 		if user == 'admin' and pswd == 'exxscuseme77!!a':
 			session['loggedin'] = True;
+		message = request.form.get('message', '')
 
 	if not session['loggedin']:
 		return webLogin()
 
 	permTable = getPermTable()
-	return render_template('index.html',permissionTable=permTable,accessLog=accessLog)
+	buildingTable = getBuildingTable()
+	if 'message' in locals():
+		return render_template('index.html',permissionTable=permTable,buildingTable=buildingTable,accessLog=accessLog,message=message)
+	else:
+		return render_template('index.html',permissionTable=permTable,buildingTable=buildingTable,accessLog=accessLog)
 
 # Add default entries if necesary
 addPermEntry('building0','door01','07003048EC93','1')
