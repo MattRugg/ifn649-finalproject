@@ -60,7 +60,7 @@ def addBuilding(building):
 	# add building if it does not exist
 	if not hasBuilding(building):
 		with open('buildings.txt', mode='a+') as permFile:
-			permFile.write(building + '\n')
+			permFile.write(building + ',0\n')
 		return True
 	return False
 
@@ -126,7 +126,10 @@ def getBuildingTable():
 	with open('buildings.txt', 'r') as buildingFile:
 		Lines = buildingFile.readlines()
 	for line in Lines:
-		buildingTable.append(line.strip('\n'))
+		# split comma separated lines
+		nline = line.strip('\n')
+		lineItems = nline.split(",")
+		buildingTable.append([lineItems[0],lineItems[1]])
 	return buildingTable
 
 @mqtt.on_connect()
@@ -261,14 +264,33 @@ def webEmergency():
 	emergencyStateReq = True if emergencyReq == 'true' else False;
 	print('state ',emergencyStateReq)
 	building = request.args.get('building', 'no building')
+	global accessLog, infoUpdated
+	time = datetime.datetime.now()
+	infoUpdated = True
+
 	if (emergencyStateReq):
 		jsonResponse = '{"triggered":true,"message":"Emergency triggered for '
 		jsonResponse += building +'"}';
 		mqtt.publish(building + '/emergency','1')
+		accessLog.append([building, "Emergency", "", "3", time])
 	else:
 		jsonResponse = '{"triggered":false,"message":"Emergency terminate for'
 		jsonResponse += building +'"}';
 		mqtt.publish(building + '/emergency','0')
+		accessLog.append([building, "Emergency", "", "4", time])
+
+	# We also need to updated the building emergency state in the file
+	with open("buildings.txt", "r") as f:
+		lines = f.readlines()
+	with open("buildings.txt", "w") as f:
+		for line in lines:
+			nline = line.strip('\n')
+			items = nline.split(',')
+			newState = '1' if emergencyStateReq else '0'
+			if items[0] == building:
+				f.write(items[0] + ',' + newState + '\n')
+			else:
+				f.write(line)
 
 	return jsonResponse
 

@@ -54,9 +54,13 @@
             
             {% for building in buildingTable: %}
             <div class="row p-1 m-1">
-              <div class="col-6">{{building}}</div>
+              <div class="col-6">{{building[0]}}</div>
               <div class="col-6 form-switch text-center">
-                <input class="form-check-input" type="checkbox" id="emergency{{building}}" onclick="triggerEmergency('{{building}}')">
+                {% if building[1] == '1' %}
+                <input class="form-check-input" type="checkbox" id="emergency{{building[0]}}" onclick="triggerEmergency('{{building[0]}}')" checked>
+                {% else %}
+                <input class="form-check-input" type="checkbox" id="emergency{{building[0]}}" onclick="triggerEmergency('{{building[0]}}')">
+                {% endif %}
                 <!--<input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" checked="">-->
               </div>
             </div>
@@ -135,7 +139,7 @@
         <div class="row m-0 p-1 btstrike bg-light tbheader">
           <div class="col-4">Date/Time</div>
           <div class="col-2">Building</div>
-          <div class="col-2">Asset</div>
+          <div class="col-2">Asset/Event</div>
           <div class="col-2">Tag ID</div>
           <div class="col-2 text-center">Access</div>
         </div>
@@ -149,8 +153,12 @@
           <div class="col-2 text-center">
           {% if logItem[3] == '1': %}
           <span class="badge rounded-pill bg-success">GRANTED</span>
-          {% else %}
+          {% elif logItem[3] == '0': %}
           <span class="badge rounded-pill bg-danger">DENIED</span>
+          {% elif logItem[3] == '3': %}
+          <span class="badge rounded-pill bg-primary">ON</span>
+          {% elif logItem[3] == '4': %}
+          <span class="badge rounded-pill bg-secondary">OFF</span>
           {% endif %}
           </div>
         </div>
