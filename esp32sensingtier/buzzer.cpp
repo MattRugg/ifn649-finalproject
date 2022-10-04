@@ -3,6 +3,7 @@
 
 #define NOTE_MUTE (note_t)-1
 #define NOTE_END (note_t)-2
+#define NOTE_LOOP (note_t)-3
 
 // Pin mapping
 const int buzzerPin = 5;
@@ -14,7 +15,7 @@ typedef struct {
   int duration;
 } Track;
 
-int currenTrack = 0;
+int currentTrack = 0;
 int trackNoteCounter = 0;
 
 Track accessGranted[] = { 
@@ -29,6 +30,12 @@ Track accessDenied[] = {
   {NOTE_MUTE, 4, 10},
   {NOTE_D, 4, 290},
   {NOTE_END, 5, 0}
+};
+
+Track emergency[] = { 
+  {NOTE_E, 5, 30},
+  {NOTE_MUTE, 4, 1000},
+  {NOTE_LOOP, 4, 10}
 };
 
 void buzzerSetup()
@@ -49,15 +56,24 @@ void playNote(note_t Note, int octave)
   ledcWriteNote(buzzerCh, Note, octave);
 }
 
+void buzzerTrackStop()
+{
+  currentTrack = 0;
+  trackNoteCounter = 0;
+  ledcDetachPin(buzzerPin);
+}
+
 void buzzerLoop()
 {
   static elapsedMillis sinceLastNote;
   Track* track = NULL;
 
-  if (currenTrack == 1)
+  if (currentTrack == 1)
     track = accessGranted;
-  else if (currenTrack == 2)
+  else if (currentTrack == 2)
     track = accessDenied;
+  else if (currentTrack == 3)
+    track = emergency;
   else 
     return;
   
@@ -65,11 +81,15 @@ void buzzerLoop()
     Track previousNote =  track[trackNoteCounter-1];
     if (sinceLastNote >= previousNote.duration) {
       sinceLastNote = 0;
-      
-      if (track[trackNoteCounter].note == NOTE_END)
+
+      if (track[trackNoteCounter].note == NOTE_LOOP)
+      {
+        trackNoteCounter = 0;
+      }
+      else if (track[trackNoteCounter].note == NOTE_END)
       {
         Serial.println("End of Tune note");
-        currenTrack = 0;
+        currentTrack = 0;
         trackNoteCounter = 0;
         ledcDetachPin(buzzerPin);
         return;
@@ -88,7 +108,7 @@ void buzzerLoop()
 
 void buzzerPlayTrack(int iTrack)
 {
-  currenTrack = iTrack;
+  currentTrack = iTrack;
   trackNoteCounter = 0;
   return;
   
