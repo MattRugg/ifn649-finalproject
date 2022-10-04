@@ -137,6 +137,7 @@ client.on_connect = on_connect
 client.on_message = on_message
 client.on_publish = on_publish
 client.on_disconnect = on_disconnect
+client.username_pw_set(username="", password="")
 client.connect(mqttAddress, 1883, 2)
 
 # So we can handle user input
