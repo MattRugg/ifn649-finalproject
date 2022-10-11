@@ -1,4 +1,4 @@
-import signal, sys, time
+import signal, sys, time, glob
 import serial
 import string
 import paho.mqtt.publish as publish
@@ -11,10 +11,24 @@ thisBuilding = "building0"
 # defines MQTT broker IP address
 mqttAddress = "52.63.215.247"
 
-# reading and writing data from and to BT serial
-# rfcomm0 corresponds to the bluetooth device representing door01
-ser = serial.Serial("/dev/rfcomm0", 9600)
-serialMap = {"door01":ser}
+# creates a map between bluetooth devices and their aliases.
+# The devices ID can be queried with the WHOAREYOU command
+macMap = {"4cebd67640400":"door01","cb815f2e96800":"door02"}
+
+# This will perform a Bluetooth network discovery
+serialMap = dict()
+ports = glob.glob('/dev/rfcomm*')
+for port in ports:
+	try:
+		s = serial.Serial(port)
+		s.write(str.encode("WHOAREYOU\r\n"))
+		rawResponse = s.readline()
+		response = rawResponse.decode('utf-8').strip('\r\n').split(',')
+		assetName = macMap[response[1]]
+		serialMap[assetName] = s
+		print("Asset " + assetName + " added to serialMap")
+	except (OSError, serial.SerialException):
+		pass
 
 # structure that temporarily holds credentials in case the cloud
 # tier goes down
