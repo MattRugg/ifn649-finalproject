@@ -4,14 +4,28 @@
 #include "Peripherals.hpp"
 #include "Buzzer.hpp"
 
+String whoiam = "";
+
 BluetoothSerial SerialBT;
 TagUtils tagUtils(TagErrorCB);
 char btSerialBuffer[256];
 
 void setup() {
-  // Initialise Bluetooth serial
-  SerialBT.begin("Door1");
   Serial.begin(115200);
+  
+  // Get Bluetooth classic MAC address
+  uint64_t mac = ESP.getEfuseMac();
+  uint8_t *macBytes = (uint8_t *)&mac;
+    
+  Serial.print("MAC addr: ");
+  for (int i = 0; i < 8; i++) {
+    Serial.print(macBytes[i], HEX);
+    whoiam += String(macBytes[i], HEX);    
+  }
+  
+  // Initialise Bluetooth serial
+  SerialBT.begin("Door" + String(macBytes[0]) + String(macBytes[1])
+    + String(macBytes[2]) + String(macBytes[3]));
 
   // Initialise RFID reader serial
   Serial2.begin(9600);
@@ -92,7 +106,11 @@ void loop() {
               buzzerPlayTrack(3);
               inEmergencyMode = true;
               doorLatchKeepOpen();
-            }        
+            }
+            else if (command == "WHOAREYOU") {
+              Serial.print("Who am I? " + whoiam);
+              SerialBT.print("WHOIAM," + whoiam +"\n");
+            }
           }
           
           // Reset command buffer
@@ -106,6 +124,8 @@ void loop() {
   buzzerLoop();
   doorLatchLoop();
 }
+
+
 
 void TagErrorCB(String error)
 {
