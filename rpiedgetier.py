@@ -15,6 +15,13 @@ mqttAddress = "52.63.215.247"
 # The devices ID can be queried with the WHOAREYOU command
 macMap = {"4cebd67640400":"door01","cb815f2e96800":"door02"}
 
+# Control flag that switches when emergency state change is
+# requested or serviced
+emergencyTrigger = False
+
+# Current emergency state for this building
+emergencyState = "OFF"
+
 # This will perform a Bluetooth network discovery
 serialMap = dict()
 ports = glob.glob('/dev/rfcomm*')
@@ -63,9 +70,9 @@ def on_message(client, userdata, msg): # func for sending msg
 		building = topicLevels[0]
 		level2 = topicLevels[1]
 		if level2 == "emergency":
+			global emergencyState, emergencyTrigger
 			emergencyState = "ON" if payload == "1" else "OFF"
-			print("emergency state: ", emergencyState)
-			ser.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
+			emergencyTrigger = True
 		elif numLevels == 4:
 			level3 = topicLevels[2]
 			if level3 == "access":
@@ -115,6 +122,12 @@ def bufferedResponse(tagID, asset):
 def processAllSerials():
 	for asset in serialMap:
 		serial = serialMap[asset]
+
+		global emergencyTrigger
+		if emergencyTrigger:
+			print("emergency state: ", emergencyState)
+			serial.write(str.encode("EMERGENCY," + emergencyState + "\r\n"))
+
 		if serial.in_waiting > 0:
 			rawserial = serial.readline()
 			cookedserial = rawserial.decode('utf-8').strip('\r\n')
@@ -140,6 +153,10 @@ def processAllSerials():
 						print("published: " +thisBuilding +"/" + asset + "/tagswipe/" + TagID)
 					else:
 						bufferedResponse(TagID, asset)
+
+	# Clears the emergency trigger once all serials
+	# are sent the emergency message
+	emergencyTrigger = False
 
 
 def signal_handler(sig, frame):
